@@ -259,3 +259,6 @@ For technical support or questions, please contact support@jameelbiz.com
 ---
 
 **Built with Next.js, React, and Tailwind CSS**
+
+<!-- Env Line from vercel.json -->
+<!-- // "DATABASE_URL": "@database_url" -->
