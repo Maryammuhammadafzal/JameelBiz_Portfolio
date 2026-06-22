@@ -2,7 +2,7 @@
 
 import { AdminSidebar } from '@/components/admin-sidebar'
 import Link from 'next/link'
-import { PencilSquare, Plus, Edit2, Trash2, Eye, EyeOff, Calendar } from 'lucide-react'
+import { PenSquare, Plus, Edit2, Trash2, Eye, EyeOff, Calendar } from 'lucide-react'
 import { useState } from 'react'
 
 const blogPosts = [
@@ -75,7 +75,7 @@ export default function BlogManagement() {
                     <tr key={post.id} className="border-b border-gray-700 hover:bg-gray-800/50 transition">
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
-                          <PencilSquare className="w-5 h-5 text-purple-400" />
+                          <PenSquare className="w-5 h-5 text-purple-400" />
                           <div>
                             <p className="font-medium text-white">{post.title}</p>
                             <p className="text-xs text-gray-400">/{post.slug}</p>
