@@ -1,0 +1,306 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  BUYER
+  SELLER
+  ADMIN
+}
+
+enum OrderStatus {
+  PENDING
+  PAYMENT_PENDING
+  IN_PROGRESS
+  COMPLETED
+  DELIVERED
+  CANCELLED
+  DISPUTED
+}
+
+enum OrderType {
+  GUEST_POST
+  LINK_INSERTION
+  NICHE_EDIT
+}
+
+enum WebsiteStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SUSPENDED
+}
+
+enum TransactionType {
+  CREDIT
+  DEBIT
+  WITHDRAWAL
+  REFUND
+}
+
+enum WithdrawalStatus {
+  PENDING
+  APPROVED
+  COMPLETED
+  REJECTED
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  password      String
+  name          String?
+  phone         String?
+  country       String?
+  avatar        String?
+  verified      Boolean   @default(false)
+  role          Role      @default(BUYER)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  wallets       Wallet[]
+  websites      Website[]
+  buyerOrders   Order[]       @relation("BuyerOrders")
+  sellerOrders  Order[]       @relation("SellerOrders")
+  sentMessages  Message[]     @relation("SentMessages")
+  receivedMessages Message[] @relation("ReceivedMessages")
+  reviews       Review[]
+  withdrawals   Withdrawal[]
+
+  @@index([email])
+  @@index([role])
+}
+
+model Wallet {
+  id            String    @id @default(cuid())
+  userId        String    @unique
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  balanceUsd    Decimal   @default(0) @db.Decimal(15, 2)
+  balancePkr    Decimal   @default(0) @db.Decimal(15, 2)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  transactions  Transaction[]
+
+  @@index([userId])
+}
+
+model Website {
+  id                String    @id @default(cuid())
+  sellerId          String
+  seller            User      @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  domain            String
+  url               String
+  niche             String
+  screenshotUrl     String?
+  
+  metrics           WebsiteMetrics?
+  pricing           WebsitePricing?
+  
+  status            WebsiteStatus @default(PENDING)
+  country           String?
+  language          String?
+  turnaroundTime    Int?           // in days
+  
+  rating            Decimal   @default(0) @db.Decimal(3, 2)
+  reviewCount       Int       @default(0)
+  
+  features          String[]  @default([])
+  verificationToken String?
+  verifiedAt        DateTime?
+  
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  orders            Order[]
+  reviews           Review[]
+
+  @@unique([sellerId, domain])
+  @@index([sellerId])
+  @@index([status])
+  @@index([niche])
+  @@index([country])
+}
+
+
+model WebsiteMetrics {
+  id                String    @id @default(cuid())
+  websiteId         String    @unique
+  website           Website   @relation(fields: [websiteId], references: [id], onDelete: Cascade)
+  
+  domainRating      Int       @default(0)
+  domainAuthority   Int       @default(0)
+  organicTraffic    Int       @default(0)
+  spamScore         Int       @default(0)
+  backlinks         Int       @default(0)
+  referringDomains  Int       @default(0)
+  
+  lastUpdated       DateTime  @default(now())
+
+  @@index([websiteId])
+}
+
+model WebsitePricing {
+  id                String    @id @default(cuid())
+  websiteId         String    @unique
+  website           Website   @relation(fields: [websiteId], references: [id], onDelete: Cascade)
+  
+  guestPostPrice    Decimal   @db.Decimal(10, 2)
+  linkInsertionPrice Decimal  @db.Decimal(10, 2)
+  nicheEditPrice    Decimal?  @db.Decimal(10, 2)
+  
+  currency          String    @default("USD")
+
+  @@index([websiteId])
+}
+
+model Order {
+  id                String    @id @default(cuid())
+  buyerId           String
+  buyer             User      @relation("BuyerOrders", fields: [buyerId], references: [id], onDelete: Cascade)
+  
+  sellerId          String
+  seller            User      @relation("SellerOrders", fields: [sellerId], references: [id], onDelete: Cascade)
+  
+  websiteId         String
+  website           Website   @relation(fields: [websiteId], references: [id], onDelete: Cascade)
+  
+  type              OrderType
+  amount            Decimal   @db.Decimal(10, 2)
+  currency          String    @default("USD")
+  
+  status            OrderStatus @default(PENDING)
+  paymentMethod     String?
+  paymentIntentId   String?
+  transactionId     String?
+  
+  contentUrl        String?
+  deliveryDate      DateTime?
+  completedAt       DateTime?
+  
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  messages          Message[]
+  invoices          Invoice[]
+
+  @@index([buyerId])
+  @@index([sellerId])
+  @@index([websiteId])
+  @@index([status])
+}
+
+model Message {
+  id                String    @id @default(cuid())
+  conversationId    String?
+  
+  senderId          String
+  sender            User      @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  
+  recipientId       String
+  recipient         User      @relation("ReceivedMessages", fields: [recipientId], references: [id], onDelete: Cascade)
+  
+  orderId           String?
+  order             Order?    @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  
+  content           String
+  isRead            Boolean   @default(false)
+  attachmentUrl     String?
+  
+  createdAt         DateTime  @default(now())
+
+  @@index([conversationId])
+  @@index([senderId])
+  @@index([recipientId])
+  @@index([orderId])
+}
+
+model Review {
+  id                String    @id @default(cuid())
+  websiteId         String
+  website           Website   @relation(fields: [websiteId], references: [id], onDelete: Cascade)
+  
+  reviewerId        String
+  reviewer          User      @relation(fields: [reviewerId], references: [id], onDelete: Cascade)
+  
+  rating            Int       // 1-5
+  comment           String?
+  
+  createdAt         DateTime  @default(now())
+
+  @@unique([websiteId, reviewerId])
+  @@index([websiteId])
+  @@index([reviewerId])
+}
+
+model Invoice {
+  id                String    @id @default(cuid())
+  orderId           String
+  order             Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  
+  invoiceNumber     String    @unique
+  amount            Decimal   @db.Decimal(10, 2)
+  currency          String    @default("USD")
+  
+  dueDate           DateTime
+  paidDate          DateTime?
+  
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([orderId])
+}
+
+model Transaction {
+  id                String    @id @default(cuid())
+  walletId          String
+  wallet            Wallet    @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  
+  type              TransactionType
+  amount            Decimal   @db.Decimal(15, 2)
+  currency          String
+  description       String?
+  
+  relatedId         String?   // orderId, withdrawalId, etc
+  
+  createdAt         DateTime  @default(now())
+
+  @@index([walletId])
+  @@index([type])
+}
+
+model Withdrawal {
+  id                String    @id @default(cuid())
+  userId            String
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  amount            Decimal   @db.Decimal(15, 2)
+  currency          String
+  
+  bankName          String?
+  accountNumber     String?
+  accountTitle      String?
+  
+  status            WithdrawalStatus @default(PENDING)
+  approvedAt        DateTime?
+  completedAt       DateTime?
+  
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([status])
+}
+
+model AdminSettings {
+  id                String    @id @default(cuid())
+  key               String    @unique
+  value             String
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+}
